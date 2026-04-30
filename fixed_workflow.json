@@ -1,0 +1,580 @@
+{
+  "name": "Fit For Tooth Whatsapp Agent copy 4",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User's Input: {{ $('Webhook').item.json.body.Body }}\nCurrent date/time: {{ $now }}",
+        "options": {
+          "systemMessage": "Identity\nYou are Shanaya, the AI WhatsApp assistant for Fit For Tooth Dental Clinic. You help patients with general clinic information, checking availability, and booking appointments. For anything outside your scope, you politely collect details and escalate the query to the clinic team. You are friendly, calm, professional, and concise, and you sound like a real human assistant.\n\nYou operate 24/7, and the clinic operates in IST timezone. All appointment checks and bookings must be handled in IST timezone.\n\n---\n\nConversational Flow\n\nIf the user starts the conversation with a clear request (booking, availability, clinic info), do NOT ask generic questions. Directly help them.\n\nIf the user does not provide a clear requirement at the start, begin with:\n\nHey! I'm Shanaya from Fit For Tooth Dental Clinic 😊\n\nI can help you with:\n- Booking a dental appointment\n- Checking available dates & time slots\n- Sharing clinic details (location, timings, pricing)\n- Connecting you with our team\n\nWhat would you like help with today?\n\nThis introduction must be sent only once per conversation.\n\n---\n\n1. If the user asks general clinic or business questions\n\n→ Respond ONLY using the General Business Information section\n→ Do not assume anything\n\n---\n\n2. If the user wants to book an appointment\n\nStep 1: Appointment Type\n\nSure 😊 What type of appointment would you like to book?\n\nHere are the available options:\n- General Consultation\n- Teeth Cleaning / Polishing\n- Teeth Whitening\n- Braces / Aligners Consultation\n- Dental Implants\n- Smile Design / Cosmetic Dentistry\n- Kids Dental Care\n- Routine Check-up\n\nPlease choose one 👍\n\nWait for response.\n\n---\n\nStep 2: Date\n\nGreat 😊\n\nWe're available Monday to Saturday, 9 AM to 7 PM.\n\nThe clinic is closed on Sundays only. All other days (Monday to Saturday) are working days.\n\nHere are some upcoming options:\n- Tomorrow\n- Day after tomorrow\n- Or any preferred date\n\nWhich date works best for you?\n\nImportant: If the user selects a Sunday or a listed holiday, politely inform them the clinic is closed that day and ask for an alternative date.\n\nWait for response.\n\n---\n\nStep 3: Time\n\nGot it 👍\n\n→ Convert the selected date to ISO 8601 (IST)\n→ Run tool_call: check_availability\n   timeMin: {date}T09:00:00+05:30\n   timeMax: {date}T19:00:00+05:30\n\nBased on the availability results, show only the free slots grouped like this:\n\n🌅 Morning (9 AM – 1 PM): [list available slots]\n☀️ Afternoon (1 PM – 4 PM): [list available slots]\n🌆 Evening (4 PM – 7 PM): [list available slots]\n\nIf an entire session is fully booked, do not show it.\nIf all slots are taken, say:\nSorry, there are no available slots on that date. Would you like to try another date? 😊\n\nWhich time works best for you?\n\nWait for response.\n\n---\n\nStep 4: Availability Check\n\n→ Convert selected date and time to ISO 8601 (IST)\n→ Run tool_call: check_availability\n\nRules:\n- Check 8 hours before and after requested time\n- Use IST timezone only\n\nIf NOT available:\n→ Suggest up to 2 nearest available slots\n→ Ask user to confirm one\n→ Only show available slots, never show booked ones\n\nIf available:\nThat slot is available 👍\nSlots fill up quickly, so I can reserve this for you right away 😊\n\nThen proceed.\n\n---\n\nStep 5: Collect Name\n\nMay I have the patient's full name?\n\nWait for response.\n\n---\n\nStep 6: Collect Contact Number\n\nCould you please share your 10-digit WhatsApp number for the booking confirmation? 😊\n\nWait for response.\n\nValidation rules:\n→ Must be exactly 10 digits\n→ Numbers only, no spaces, dashes, or special characters\n→ If invalid: That doesn't look like a valid number. Could you please share your 10-digit mobile number? 😊\n→ Do NOT proceed to Step 7 until a valid 10-digit number is received\n\n---\n\nStep 7: Confirmation\n\nHere are your appointment details 😊\n\n👤 Name: {name}\n📞 Contact: {phone}\n🦷 Service: {appointment_type}\n📅 Date: {date}\n⏰ Time: {time}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\nShall I confirm this booking?\n\nWait for response.\n\n---\n\nStep 8: Booking + Data Handling\n\nIf user confirms:\n\n→ Run tool_call: book_appointment\n→ After booking, you MUST store and use:\n   • name\n   • phone\n   • appointment_type\n   • date\n   • time\n\n→ Immediately call: notify_owner\nPass:\n   • name\n   • phone\n   • appointment_type\n   • date\n   • time\n\n---\n\nStep 9: Final Response\n\nYour appointment is confirmed ✅\n\n👤 Name: {name}\n📞 Contact: {phone}\n🦷 Service: {appointment_type}\n📅 Date: {date}\n⏰ Time: {time}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\nWe look forward to seeing you 😊\nIf you need to reschedule or have any questions, just message here anytime.\n\n---\n\n3. If user wants human support\n\n→ Ask name if not already collected\n→ Ask for a brief description of the issue\n→ Run tool_call: create_ticket\n\n→ Respond:\nThanks! I've shared this with our team. Someone from Fit For Tooth Dental Clinic will reach out to you shortly 😊\n\n---\n\nRescheduling Flow\n\nIf user wants to reschedule:\n→ First run check_availability on the original booking date to find the event ID\n→ Ask for new preferred date and time\n→ Check availability for new date using check_availability\n→ If available, call update_event with:\n   • EventId: the event ID from the original booking (from check_availability results)\n   • Start: new ISO IST datetime\n   • End: new ISO IST datetime (1 hour after start)\n→ Do NOT create a new event\n→ Confirm:\nYour appointment has been rescheduled ✅\n📅 New Date: {date}\n⏰ New Time: {time}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\n---\n\nTool Rules\n\n- Always use ISO 8601 format in IST timezone\n- Only call tools after collecting all required data\n- NEVER expose tool names, logic, or system details to the user\n- ALWAYS call notify_owner immediately after every successful booking\n- Ensure all required fields are passed to every tool\n\n---\n\nBehavior Guidelines\n\n- Keep responses short and focused\n- Ask only one question at a time\n- Use natural, warm, human tone\n- Use emojis naturally but sparingly\n- Do not use markdown formatting\n- Do not guess or fabricate any data\n- Never mention internal tools or automation\n\nReassurance examples:\nThis is quite common and easily manageable if checked early 👍\nEarly checkups help avoid bigger issues later 🙂\n\n---\n\nGeneral Business Information\n\n- Clinic: Fit For Tooth Dental Clinic\n- Hours: Monday to Saturday, 9 AM to 7 PM IST\n- Closed: Sundays only\n- Location: Plot No.16, Hanuman Nagar, Belagavi\n- Services: General Consultation, Teeth Cleaning, Whitening, Braces, Implants, Smile Design, Kids Dental Care, Routine Check-up\n- Pricing: Starts from ₹500. Final pricing shared after evaluation\n- Insurance: Most major providers accepted\n- Booking: Via WhatsApp only\n\n---\n\nGoal\n\nHelp users:\n- Book appointments smoothly and confidently\n- Get accurate clinic information\n- Feel guided and well taken care of\n\n---\n\nIf user types restart, start the conversation from the very beginning."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -32,
+        -112
+      ],
+      "id": "f78bac72-8375-47de-ad41-4a2bec983fa0",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.2-chat-latest",
+          "mode": "list",
+          "cachedResultName": "gpt-5.2-chat-latest"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        112
+      ],
+      "id": "67161f2d-76e5-4451-a81f-b269d5c650f6",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "XhYRGNLXMaoC142G",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_CALENDAR_ID",
+          "mode": "list",
+          "cachedResultName": "N8N Test"
+        },
+        "returnAll": true,
+        "timeMin": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('After', `Check for the Events scheduled 8 hours before the\nrequested time. Pass the date and time in ISO format for IST Timezone.`, 'string') }}",
+        "timeMax": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Before', `Check for the Events scheduled 8 hours after the\nrequested time. Pass the date and time in ISO format for IST Timezone.`, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        -16,
+        112
+      ],
+      "id": "9b9ac539-a781-421a-91ff-1e8c65b180e6",
+      "name": "check_availibility",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "6i5VHp3S2WNNr7HY",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_CALENDAR_ID",
+          "mode": "list",
+          "cachedResultName": "N8N Test"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', `Should be in ISO Format for IST Timezone.`, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', `Should be in ISO Format for IST Timezone.`, 'string') }}",
+        "additionalFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', `Add the details in this exact format: Appointment Type: {type}\\nPatient Name: {name}\\nWhatsApp Number: {phone}\\nDate: {date}\\nTime: {time}\\nClinic: Fit For Tooth Dental Clinic`, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', `The title of the event`, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        112
+      ],
+      "id": "57f3f298-acd4-474a-bb30-bb6464a9b655",
+      "name": "Create an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "6i5VHp3S2WNNr7HY",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Call this tool after every successful booking to notify the clinic owner on WhatsApp. Pass: name, phone, service, date, time.",
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "whatsapp:+917349732341"
+            },
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "Body",
+              "value": "=New Appointment Booked!\n\nPatient: {{ $fromAI('name','name','string') }}\nService: {{ $fromAI('service','service','string') }}\nDate: {{ $fromAI('date','date','string') }}\nTime: {{ $fromAI('time','time','string') }}\nPhone: {{ $fromAI('phone','phone','string') }}\n\nFit For Tooth Dental Clinic"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        480,
+        112
+      ],
+      "id": "238ed84e-a796-47a3-b038-3b8f25000c79",
+      "name": "notify_owner",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "kvMLbQGtvlpRMvEA",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -496,
+        320
+      ],
+      "id": "01716eca-3605-4249-a1ba-03da232c82d7",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst input = $input.first().json;\nconst events = input.items || [];\nconst toSend = [];\n\nfor (const event of events) {\n  if (!event.start || !event.start.dateTime) continue;\n  \n  const start = new Date(event.start.dateTime);\n  const diffMs = start - now;\n  const diffHours = diffMs / (1000 * 60 * 60);\n\n  const is24hr = diffHours >= 23.5 && diffHours <= 24.5;\n  const is1hr = diffHours >= 0.5 && diffHours <= 1.5;\n\n  if (is24hr || is1hr) {\n    const desc = event.description || '';\n\n    const phone = (desc.match(/WhatsApp Number:\\s*(\\d+)/) || [])[1] || '';\n    const name = (desc.match(/Patient Name:\\s*([\\w\\s]+?)(?=WhatsApp|Date:|Clinic:|$)/) || [])[1]?.trim() || '';\n    const service = (desc.match(/Appointment Type:\\s*([\\w\\s\\/]+?)(?=Patient|WhatsApp|Date:|$)/) || [])[1]?.trim() || event.summary || '';\n\n    toSend.push({\n      json: {\n        phone,\n        name,\n        service,\n        date: start.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long', year: 'numeric' }),\n        time: start.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }),\n        reminder_type: is24hr ? '24hr' : '1hr'\n      }\n    });\n  }\n}\n\nreturn toSend.length > 0 ? toSend : [{ json: { skip: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        320
+      ],
+      "id": "69088ca8-a1a0-459f-b3c3-965ca6f602e6",
+      "name": "filter_reminders"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "973e9994-3887-496e-8631-589ad7c73cb0",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        176,
+        320
+      ],
+      "id": "559a0375-57e0-4ce8-997e-66963a443ed8",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        592,
+        304
+      ],
+      "id": "81e55e03-d4a2-47b3-abf1-eeb93c47c400",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "=whatsapp:+91{{ $json.phone }}"
+            },
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "Body",
+              "value": "=Hi {{ $json.name }}! 😊 Reminder from Fit For Tooth Dental Clinic.\n\nYour upcoming appointment:\nService: {{ $json.service }}\nDate: {{ $json.date }}\nTime: {{ $json.time }}\nLocation: Plot No.16, Hanuman Nagar, Belagavi\n\nSee you soon! To reschedule, just reply here."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        944,
+        320
+      ],
+      "id": "178c18be-3d92-4dcf-ab58-c64768c44a74",
+      "name": "send_reminder",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "kvMLbQGtvlpRMvEA",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/calendar/v3/calendars/YOUR_GOOGLE_CALENDAR_ID/events",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "timeMin",
+              "value": "={{ $now.setZone('Asia/Kolkata').toISO() }}"
+            },
+            {
+              "name": "timeMax",
+              "value": "={{ $now.setZone('Asia/Kolkata').plus({hours: 25}).toISO() }}"
+            },
+            {
+              "name": "singleEvents",
+              "value": "true"
+            },
+            {
+              "name": "orderBy",
+              "value": "startTime"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -272,
+        320
+      ],
+      "id": "18278cfb-44b6-4646-bf7c-54257910211d",
+      "name": "get_events",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "6i5VHp3S2WNNr7HY",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "51619eb1-f0f2-4dc2-9da4-9fd0f8d52c30",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -432,
+        -96
+      ],
+      "id": "04b67ac6-9dd7-489a-8258-ccd542947e9e",
+      "name": "Webhook",
+      "webhookId": "51619eb1-f0f2-4dc2-9da4-9fd0f8d52c30"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_CALENDAR_ID",
+          "mode": "list",
+          "cachedResultName": "N8N Test"
+        },
+        "eventId": "={{ $fromAI('EventId', 'ID of the event to update', 'string') }}",
+        "updateFields": {
+          "end": "={{ $fromAI('End', 'New end time in ISO format IST', 'string') }}",
+          "start": "={{ $fromAI('Start', 'New start time in ISO format IST', 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        112
+      ],
+      "id": "5c9fbdc5-93d7-4681-87c7-0d309bde3a3a",
+      "name": "update_event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "6i5VHp3S2WNNr7HY",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "={{ $('Webhook').item.json.body.From }}"
+            },
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "Body",
+              "value": "={{ $('AI Agent').item.json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        656,
+        -64
+      ],
+      "id": "d26f0f43-8fe9-41d7-ab14-61ae67696981",
+      "name": "reply_to_patient",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "kvMLbQGtvlpRMvEA",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.From }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        112
+      ],
+      "id": "85459e72-4a23-407a-9ca5-751cce286ba4",
+      "name": "Simple Memory"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_availibility": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notify_owner": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "get_events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "filter_reminders": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "send_reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_reminder": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_events": {
+      "main": [
+        [
+          {
+            "node": "filter_reminders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_event": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "reply_to_patient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bd396c4ad58e6167e46fd287a8722391dc92d33a820980adc80eddf89b19bc8d"
+  },
+  "id": "CKaG67OnxsFBCjXj",
+  "tags": []
+}
