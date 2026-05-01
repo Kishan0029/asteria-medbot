@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = ''; // Use Vite proxy
+const BASE_URL = import.meta.env.VITE_N8N_WEBHOOK_BASE_URL; // Use Vite proxy
 const ENDPOINTS = {
   GET: import.meta.env.VITE_N8N_GET_APPOINTMENTS || '',
   CANCEL: import.meta.env.VITE_N8N_CANCEL_APPOINTMENT || '',
@@ -18,9 +18,13 @@ function mapEvent(event) {
   const summary = event.summary || '';
 
   // Extract a labeled field like "Patient Name: John" from the description
+  // Handles cases where the AI forgets newlines or outputs "n" instead of "\n"
   const extract = (key) => {
-    const match = desc.match(new RegExp(key + ':\\s*(.+?)(?=\\n|\\r|$)', 'i'));
-    return match ? match[1].trim() : '';
+    const match = desc.match(new RegExp(key + ':\\s*(.+?)(?=\\n|\\\\n|\\r|n?(?:WhatsApp Number|Date|Time|Clinic|Patient Name|Appointment Type|Status):|$)', 'i'));
+    let val = match ? match[1].trim() : '';
+    // If the value accidentally caught a stray 'n' at the end before the next key, clean it
+    if (val.endsWith('n') && desc.includes(val + 'WhatsApp')) val = val.slice(0, -1).trim();
+    return val;
   };
 
   // --- Service ---
@@ -53,10 +57,16 @@ function mapEvent(event) {
   if (!service) service = titlePart || 'Consultation';
 
   // --- Patient Name ---
-  let name = extract('Patient Name') || extract('Name');
+  let name = extract('Patient Name') || extract('Name') || extract("Customer's name");
   if (!name) {
     const parts = summary.split(' - ');
-    if (parts.length > 1) name = parts.slice(1).join(' - ').trim();
+    if (parts.length > 1) {
+      name = parts.slice(1).join(' - ').trim();
+    } else {
+      // Fallback: Check if summary is "Appointment for [Name]" or "Booking for [Name]"
+      const match = summary.match(/(?:Appointment|Booking|Consultation) for\s+(.+)/i);
+      if (match) name = match[1].trim();
+    }
   }
   if (!name) name = 'Unknown Patient';
 
@@ -100,7 +110,7 @@ export const api = {
     try {
       const timeMin = new Date();
       timeMin.setDate(timeMin.getDate() - 30); // 30 days in the past
-      
+
       const timeMax = new Date();
       timeMax.setDate(timeMax.getDate() + 60); // 60 days in the future
 
@@ -156,10 +166,10 @@ export const api = {
       // Build IST-offset datetime strings manually to avoid UTC conversion issues
       const pad = (n) => String(n).padStart(2, '0');
       const [year, month, day] = newDateString.split('-');
-      const [hour, minute]     = newTimeString.split(':');
+      const [hour, minute] = newTimeString.split(':');
       const newStart = `${year}-${month}-${day}T${pad(hour)}:${pad(minute)}:00+05:30`;
-      const endHour  = String(Number(hour) + 1).padStart(2, '0');
-      const newEnd   = `${year}-${month}-${day}T${endHour}:${pad(minute)}:00+05:30`;
+      const endHour = String(Number(hour) + 1).padStart(2, '0');
+      const newEnd = `${year}-${month}-${day}T${endHour}:${pad(minute)}:00+05:30`;
 
       // Human-readable date/time for the WhatsApp message
       const displayDate = new Date(`${newDateString}T${newTimeString}:00`)
@@ -172,11 +182,11 @@ export const api = {
         newStart,
         newEnd,
         // Patient info + new slot for WhatsApp notification
-        phone:   apt.phone   || '',
-        name:    apt.name    || '',
+        phone: apt.phone || '',
+        name: apt.name || '',
         service: apt.service || '',
-        date:    displayDate,
-        time:    displayTime,
+        date: displayDate,
+        time: displayTime,
       }, {
         headers: { 'ngrok-skip-browser-warning': 'true' }
       });

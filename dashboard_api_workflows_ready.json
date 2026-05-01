@@ -1,0 +1,1100 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User's Input: {{ $('Webhook').item.json.body.Body }}\nCurrent date/time: {{ $now }}",
+        "options": {
+          "systemMessage": "Identity\nYou are Shanaya, the AI WhatsApp assistant for Fit For Tooth Dental Clinic. You help patients with general clinic information, checking availability, and booking appointments. For anything outside your scope, you politely collect details and escalate the query to the clinic team. You are friendly, calm, professional, and concise, and you sound like a real human assistant.\n\nYou operate 24/7, and the clinic operates in IST timezone. All appointment checks and bookings must be handled in IST timezone.\n\n---\n\nConversational Flow\n\nIf the user starts the conversation with a clear request (booking, availability, clinic info), do NOT ask generic questions. Directly help them.\n\nIf the user does not provide a clear requirement at the start, begin with:\n\nHey! I'm Shanaya from Fit For Tooth Dental Clinic 😊\n\nI can help you with:\n- Booking a dental appointment\n- Checking available dates & time slots\n- Sharing clinic details (location, timings, pricing)\n- Connecting you with our team\n\nWhat would you like help with today?\n\nThis introduction must be sent only once per conversation.\n\n---\n\n1. If the user asks general clinic or business questions\n\n→ Respond ONLY using the General Business Information section\n→ Do not assume anything\n\n---\n\n2. If the user wants to book an appointment\n\nStep 1: Appointment Type\n\nSure 😊 What type of appointment would you like to book?\n\nHere are the available options:\n- General Consultation\n- Teeth Cleaning / Polishing\n- Teeth Whitening\n- Braces / Aligners Consultation\n- Dental Implants\n- Smile Design / Cosmetic Dentistry\n- Kids Dental Care\n- Routine Check-up\n\nPlease choose one 👍\n\nWait for response.\n\n---\n\nStep 2: Date\n\nGreat 😊\n\nWe're available Monday to Saturday, 9 AM to 7 PM.\n\nThe clinic is closed on Sundays only. All other days (Monday to Saturday) are working days.\n\n\nHere are some upcoming options:\n- Tomorrow\n- Day after tomorrow\n- Or any preferred date\n\nWhich date works best for you?\n\nImportant: If the user selects a Sunday, politely inform them the clinic is closed that day and ask for an alternative date.\n\nWait for response.\n\n---\n\nStep 3: Time\n\nGot it 👍\n\n→ Convert the selected date to ISO 8601 (IST)\n→ Run tool_call: check_availability\n   timeMin: {date}T09:00:00+05:30\n   timeMax: {date}T19:00:00+05:30\n\nBased on the availability results, show only the free slots grouped like this:\n\n🌅 Morning (9 AM – 1 PM): [list available slots]\n☀️ Afternoon (1 PM – 4 PM): [list available slots]\n🌆 Evening (4 PM – 7 PM): [list available slots]\n\nIf an entire session is fully booked, do not show it.\nIf all slots are taken, say:\nSorry, there are no available slots on that date. Would you like to try another date? 😊\n\nWhich time works best for you?\n\nWait for response.\n\n---\n\nStep 4: Availability Check\n\n→ Convert selected date and time to ISO 8601 (IST)\n→ Run tool_call: check_availability\n\nRules:\n- Check 8 hours before and after requested time\n- Use IST timezone only\n\nIf NOT available:\n→ Suggest up to 2 nearest available slots\n→ Ask user to confirm one\n→ Only show available slots, never show booked ones\n\nIf available:\nThat slot is available 👍\nSlots fill up quickly, so I can reserve this for you right away 😊\n\nThen proceed.\n\n---\n\nStep 5: Collect Name\n\nMay I have the patient's full name?\n\nWait for response.\n\n---\n\nStep 6: Collect Contact Number\n\nCould you please share your 10-digit WhatsApp number for the booking confirmation? 😊\n\nWait for response.\n\nValidation rules:\n→ Must be exactly 10 digits\n→ Numbers only, no spaces, dashes, or special characters\n→ If invalid: That doesn't look like a valid number. Could you please share your 10-digit mobile number? 😊\n→ Do NOT proceed to Step 7 until a valid 10-digit number is received\n\n---\n\nStep 7: Confirmation\n\nHere are your appointment details 😊\n\n👤 Name: {name}\n📞 Contact: {phone}\n🦷 Service: {appointment_type}\n📅 Date: {date}\n⏰ Time: {time}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\nShall I confirm this booking?\n\nWait for response.\n\n---\n\nStep 8: Booking + Data Handling\n\nIf user confirms:\n\n→ Run tool_call: book_appointment\n→ After booking, you MUST store and use:\n   • name\n   • phone\n   • appointment_type\n   • date\n   • time\n\n→ Immediately call: notify_owner\nPass:\n   • name\n   • phone\n   • appointment_type\n   • date\n   • time\n\n---\n\nStep 9: Final Response\n\nYour appointment is confirmed ✅\n\n👤 Name: {name}\n📞 Contact: {phone}\n🦷 Service: {appointment_type}\n📅 Date: {date}\n⏰ Time: {time}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\nWe look forward to seeing you 😊\nIf you need to reschedule or have any questions, just message here anytime.\n\n---\n\n3. If user wants human support\n\n→ Ask name if not already collected\n→ Ask for a brief description of the issue\n→ Run tool_call: create_ticket\n\n→ Respond:\nThanks! I've shared this with our team. Someone from Fit For Tooth Dental Clinic will reach out to you shortly 😊\n\n---\n\nRescheduling Flow\n\nIf user wants to reschedule:\n→ First run check_availability on the original booking date to find the event ID\n→ Ask for new preferred date and time\n→ Check availability for new date using check_availability\n→ If available, call update_event with:\n   • EventId: the event ID from the original booking (from check_availability results)\n   • Start: new ISO IST datetime\n   • End: new ISO IST datetime (1 hour after start)\n→ Do NOT create a new event\n→ Confirm:\nYour appointment has been rescheduled ✅\n📅 New Date: {date}\n⏰ New Time: {time}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\n---\n\nTool Rules\n\n- Always use ISO 8601 format in IST timezone\n- Only call tools after collecting all required data\n- NEVER expose tool names, logic, or system details to the user\n- ALWAYS call notify_owner immediately after every successful booking\n- Ensure all required fields are passed to every tool\n\n---\n\nBehavior Guidelines\n\n- Keep responses short and focused\n- Ask only one question at a time\n- Use natural, warm, human tone\n- Use emojis naturally but sparingly\n- Do not use markdown formatting\n- Do not guess or fabricate any data\n- Never mention internal tools or automation\n\nReassurance examples:\nThis is quite common and easily manageable if checked early 👍\nEarly checkups help avoid bigger issues later 🙂\n\n---\n\nGeneral Business Information\n\n- Clinic: Fit For Tooth Dental Clinic\n- Hours: Monday to Saturday, 9 AM to 7 PM IST\n- Location: Plot No.16, Hanuman Nagar, Belagavi\n- Services: General Consultation, Teeth Cleaning, Whitening, Braces, Implants, Smile Design, Kids Dental Care, Routine Check-up\n- Pricing: Starts from ₹500. Final pricing shared after evaluation\n- Insurance: Most major providers accepted\n- Booking: Via WhatsApp only\n\n---\n\nGoal\n\nHelp users:\n- Book appointments smoothly and confidently\n- Get accurate clinic information\n- Feel guided and well taken care of\n\n---\n\nIf user types restart, start the conversation from the very beginning."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        160,
+        -256
+      ],
+      "id": "afc96ec4-fced-42e8-92c2-6a0a63572f9d",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.2-chat-latest",
+          "mode": "list",
+          "cachedResultName": "gpt-5.2-chat-latest"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -112,
+        -32
+      ],
+      "id": "066ba284-8c28-4a78-9526-5ab59a94955b",
+      "name": "OpenAI Chat Model",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "11d579521c6c1d08ca6fb99f5f7ebc476a5b535ea2fb12fd81e1df5fb08c41db@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "N8N Test"
+        },
+        "returnAll": true,
+        "timeMin": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('After', `Check for the Events scheduled 8 hours before the\nrequested time. Pass the date and time in ISO format for IST Timezone.`, 'string') }}",
+        "timeMax": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Before', `Check for the Events scheduled 8 hours after the\nrequested time. Pass the date and time in ISO format for IST Timezone.`, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        176,
+        -32
+      ],
+      "id": "f4461cbd-cf8c-4565-9c5b-d8612f5723ae",
+      "name": "check_availibility",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "11d579521c6c1d08ca6fb99f5f7ebc476a5b535ea2fb12fd81e1df5fb08c41db@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "N8N Test"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', `Should be in ISO Format for IST Timezone.`, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', `Should be in ISO Format for IST Timezone.`, 'string') }}",
+        "additionalFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', `Add the details in this exact format: Appointment Type: {type}\\nPatient Name: {name}\\nWhatsApp Number: {phone}\\nDate: {date}\\nTime: {time}\\nClinic: Fit For Tooth Dental Clinic`, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', `The title of the event`, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        336,
+        -32
+      ],
+      "id": "28e5030c-761f-49c2-915d-c5f3d7ce0c41",
+      "name": "Create an event in Google Calendar",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "toolDescription": "Call this tool after every successful booking to notify the clinic owner on WhatsApp. Pass: name, phone, service, date, time.",
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "whatsapp:+917349732341"
+            },
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "Body",
+              "value": "=New Appointment Booked!\n\nPatient: {{ $fromAI('name','name','string') }}\nService: {{ $fromAI('service','service','string') }}\nDate: {{ $fromAI('date','date','string') }}\nTime: {{ $fromAI('time','time','string') }}\nPhone: {{ $fromAI('phone','phone','string') }}\n\nFit For Tooth Dental Clinic"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        672,
+        -32
+      ],
+      "id": "be628813-b6c4-4ad0-86b7-db913ffc138c",
+      "name": "notify_owner",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        176
+      ],
+      "id": "38136880-f07a-4bb5-974a-c3eaf5633065",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst input = $input.first().json;\nconst events = input.items || [];\nconst toSend = [];\n\nfor (const event of events) {\n  if (!event.start || !event.start.dateTime) continue;\n  \n  const start = new Date(event.start.dateTime);\n  const diffMs = start - now;\n  const diffHours = diffMs / (1000 * 60 * 60);\n\n  const is24hr = diffHours >= 23.5 && diffHours <= 24.5;\n  const is1hr = diffHours >= 0.5 && diffHours <= 1.5;\n\n  if (is24hr || is1hr) {\n    const desc = event.description || '';\n\n    const phone = (desc.match(/WhatsApp Number:\\s*(\\d+)/) || [])[1] || '';\n    const name = (desc.match(/Patient Name:\\s*([\\w\\s]+?)(?=WhatsApp|Date:|Clinic:|$)/) || [])[1]?.trim() || '';\n    const service = (desc.match(/Appointment Type:\\s*([\\w\\s\\/]+?)(?=Patient|WhatsApp|Date:|$)/) || [])[1]?.trim() || event.summary || '';\n\n    toSend.push({\n      json: {\n        phone,\n        name,\n        service,\n        date: start.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long', year: 'numeric' }),\n        time: start.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }),\n        reminder_type: is24hr ? '24hr' : '1hr'\n      }\n    });\n  }\n}\n\nreturn toSend.length > 0 ? toSend : [{ json: { skip: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        176
+      ],
+      "id": "524e0725-00c9-4a02-97a7-fb769cd1fe01",
+      "name": "filter_reminders"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "973e9994-3887-496e-8631-589ad7c73cb0",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        368,
+        176
+      ],
+      "id": "6853a6fb-5f9e-43dd-a527-3143279f6d27",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        784,
+        160
+      ],
+      "id": "d1a207c3-c55a-4114-a848-ba0f98dd9560",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "=whatsapp:+91{{ $json.phone }}"
+            },
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "Body",
+              "value": "=Hi {{ $json.name }}! 😊 Reminder from Fit For Tooth Dental Clinic.\n\nYour upcoming appointment:\nService: {{ $json.service }}\nDate: {{ $json.date }}\nTime: {{ $json.time }}\nLocation: Plot No.16, Hanuman Nagar, Belagavi\n\nSee you soon! To reschedule, just reply here."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1136,
+        176
+      ],
+      "id": "5fe038fc-cbfa-48be-b509-3adcdf9113db",
+      "name": "send_reminder",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/calendar/v3/calendars/11d579521c6c1d08ca6fb99f5f7ebc476a5b535ea2fb12fd81e1df5fb08c41db@group.calendar.google.com/events",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "timeMin",
+              "value": "={{ $now.setZone('Asia/Kolkata').toISO() }}"
+            },
+            {
+              "name": "timeMax",
+              "value": "={{ $now.setZone('Asia/Kolkata').plus({hours: 25}).toISO() }}"
+            },
+            {
+              "name": "singleEvents",
+              "value": "true"
+            },
+            {
+              "name": "orderBy",
+              "value": "startTime"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -80,
+        176
+      ],
+      "id": "0d47a55f-85b6-4f1e-9b35-114eec4e9fb9",
+      "name": "get_events",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "51619eb1-f0f2-4dc2-9da4-9fd0f8d52c30",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -208,
+        -256
+      ],
+      "id": "1d76d353-08ba-4093-91b5-fcdd4aa4c76c",
+      "name": "Webhook",
+      "webhookId": "51619eb1-f0f2-4dc2-9da4-9fd0f8d52c30"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "11d579521c6c1d08ca6fb99f5f7ebc476a5b535ea2fb12fd81e1df5fb08c41db@group.calendar.google.com",
+          "mode": "list",
+          "cachedResultName": "N8N Test"
+        },
+        "eventId": "={{ $fromAI('EventId', 'ID of the event to update', 'string') }}",
+        "updateFields": {
+          "end": "={{ $fromAI('End', 'New end time in ISO format IST', 'string') }}",
+          "start": "={{ $fromAI('Start', 'New start time in ISO format IST', 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        496,
+        -32
+      ],
+      "id": "ac0e99c9-2a21-4770-8ba3-5284aa33e2fc",
+      "name": "update_event",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "={{ $('Webhook').item.json.body.From }}"
+            },
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "Body",
+              "value": "={{ $('AI Agent').item.json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        848,
+        -256
+      ],
+      "id": "2a605fb3-b6e7-48b6-b5f7-b1de5c46ec0f",
+      "name": "reply_to_patient",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.From }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        -32
+      ],
+      "id": "46fe2b86-2340-4653-a813-cd94086956be",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "path": "appointments",
+        "responseMode": "responseNode",
+        "options": {
+          "respondWith": "json",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -112,
+        -1168
+      ],
+      "id": "9a086a82-aac9-4992-8b4e-256775d35301",
+      "name": "GET /appointments",
+      "webhookId": "dash-get-appointments"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/calendar/v3/calendars/11d579521c6c1d08ca6fb99f5f7ebc476a5b535ea2fb12fd81e1df5fb08c41db@group.calendar.google.com/events",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "timeMin",
+              "value": "={{ $json.query.timeMin || $now.setZone('Asia/Kolkata').minus({days: 30}).toISO() }}"
+            },
+            {
+              "name": "timeMax",
+              "value": "={{ $json.query.timeMax || $now.setZone('Asia/Kolkata').plus({days: 60}).toISO() }}"
+            },
+            {
+              "name": "singleEvents",
+              "value": "true"
+            },
+            {
+              "name": "orderBy",
+              "value": "startTime"
+            },
+            {
+              "name": "maxResults",
+              "value": "250"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        128,
+        -1168
+      ],
+      "id": "1520c860-c5c2-458f-8db2-813fa4294c67",
+      "name": "Fetch Calendar Events",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst items = data.items || [];\nreturn items.map(event => ({ json: event }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        -1168
+      ],
+      "id": "6b6cf6f8-c884-4c87-a694-5164f3562d87",
+      "name": "Extract Events Array"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        608,
+        -1168
+      ],
+      "id": "8c4e8ba5-9ff8-49f2-a62a-097dcfef93f3",
+      "name": "Respond with Events"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cancel",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -112,
+        -960
+      ],
+      "id": "75d72049-45ab-4a25-8089-56e60f018cef",
+      "name": "POST /cancel",
+      "webhookId": "dash-cancel-appointment"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/11d579521c6c1d08ca6fb99f5f7ebc476a5b535ea2fb12fd81e1df5fb08c41db@group.calendar.google.com/events/{{ $json.body.eventId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        128,
+        -960
+      ],
+      "id": "a0c782d8-34d3-4d5c-993e-2da727dc8d9e",
+      "name": "Delete Calendar Event",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"message\": \"Appointment cancelled successfully\" }",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        488,
+        -960
+      ],
+      "id": "d8bf8379-0ca2-491c-94dc-0dc88797a4d8",
+      "name": "Respond Cancel OK"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reschedule",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -112,
+        -768
+      ],
+      "id": "52299110-0385-4bb0-a3dd-e172fddc9867",
+      "name": "POST /reschedule",
+      "webhookId": "dash-reschedule-appointment"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/11d579521c6c1d08ca6fb99f5f7ebc476a5b535ea2fb12fd81e1df5fb08c41db@group.calendar.google.com/events/{{ $json.body.eventId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"start\": { \"dateTime\": \"{{ $('POST /reschedule').item.json.body.newStart }}\", \"timeZone\": \"Asia/Kolkata\" }, \"end\": { \"dateTime\": \"{{ $('POST /reschedule').item.json.body.newEnd }}\", \"timeZone\": \"Asia/Kolkata\" } }",
+        "contentType": "json"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        128,
+        -768
+      ],
+      "id": "6916b5b0-9ca3-452d-a058-8acbfbabc80f",
+      "name": "Update Calendar Event",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"message\": \"Appointment rescheduled successfully\" }",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        488,
+        -768
+      ],
+      "id": "23be60cc-c2d4-4546-97f5-37ba81ae9350",
+      "name": "Respond Reschedule OK"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "complete",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -112,
+        -560
+      ],
+      "id": "fa6d0638-f104-4fed-afaa-9603a28b1fd0",
+      "name": "POST /complete",
+      "webhookId": "dash-complete-appointment"
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/11d579521c6c1d08ca6fb99f5f7ebc476a5b535ea2fb12fd81e1df5fb08c41db@group.calendar.google.com/events/{{ $json.body.eventId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        128,
+        -560
+      ],
+      "id": "0ce10d3d-076c-43c3-a118-9fbab240d2da",
+      "name": "Fetch Event to Complete",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "jsCode": "const eventId = $('POST /complete').first().json.body.eventId;\nconst event = $input.first().json;\nconst existingDesc = event.description || '';\nconst newDesc = existingDesc.includes('Status: Completed')\n  ? existingDesc\n  : existingDesc + '\\nStatus: Completed';\nreturn [{ json: { eventId, description: newDesc } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        -560
+      ],
+      "id": "c29e2fd1-0b43-40dd-b156-27fba903ee46",
+      "name": "Build Complete Payload"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/11d579521c6c1d08ca6fb99f5f7ebc476a5b535ea2fb12fd81e1df5fb08c41db@group.calendar.google.com/events/{{ $json.eventId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"description\": \"{{ $json.description }}\" }",
+        "contentType": "json"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        608,
+        -560
+      ],
+      "id": "ae019f99-b3ff-4cea-9629-d04adf2c8344",
+      "name": "Mark Event Completed",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"message\": \"Appointment marked as completed\" }",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        848,
+        -560
+      ],
+      "id": "5376bb88-32cf-410a-84a1-ab141bece8ad",
+      "name": "Respond Complete OK"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "={{ 'whatsapp:+91' + $('POST /cancel').item.json.body.phone.toString().replace(/^(\\+91|91)/, '') }}"
+            },
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "Body",
+              "value": "=Hi {{ $('POST /cancel').item.json.body.name }}! 😊\n\nYour appointment for {{ $('POST /cancel').item.json.body.service }} has been successfully cancelled.\n\nIf you'd like to book a new appointment, just message us here anytime!\n\n— Fit For Tooth Dental Clinic"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        248,
+        -960
+      ],
+      "id": "cancel-twilio-1777467918453",
+      "name": "Send Cancel WhatsApp",
+      "credentials": {},
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "={{ 'whatsapp:+91' + $('POST /reschedule').item.json.body.phone.toString().replace(/^(\\+91|91)/, '') }}"
+            },
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "Body",
+              "value": "=Hi {{ $('POST /reschedule').item.json.body.name }}! 😊\n\nYour appointment for {{ $('POST /reschedule').item.json.body.service }} has been successfully RESCHEDULED:\n\n📅 Date: {{ $('POST /reschedule').item.json.body.date }}\n⏰ Time: {{ $('POST /reschedule').item.json.body.time }}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\nSee you soon!"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        248,
+        -768
+      ],
+      "id": "reschedule-twilio-1777467918453",
+      "name": "Send Reschedule WhatsApp",
+      "credentials": {},
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "reply_to_patient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_availibility": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notify_owner": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "get_events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "filter_reminders": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "send_reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_reminder": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_events": {
+      "main": [
+        [
+          {
+            "node": "filter_reminders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_event": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /appointments": {
+      "main": [
+        [
+          {
+            "node": "Fetch Calendar Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Calendar Events": {
+      "main": [
+        [
+          {
+            "node": "Extract Events Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Events Array": {
+      "main": [
+        [
+          {
+            "node": "Respond with Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /cancel": {
+      "main": [
+        [
+          {
+            "node": "Delete Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Send Cancel WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /reschedule": {
+      "main": [
+        [
+          {
+            "node": "Update Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Send Reschedule WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /complete": {
+      "main": [
+        [
+          {
+            "node": "Fetch Event to Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Event to Complete": {
+      "main": [
+        [
+          {
+            "node": "Build Complete Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Complete Payload": {
+      "main": [
+        [
+          {
+            "node": "Mark Event Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Event Completed": {
+      "main": [
+        [
+          {
+            "node": "Respond Complete OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Cancel WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Respond Cancel OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reschedule WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Respond Reschedule OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "bd396c4ad58e6167e46fd287a8722391dc92d33a820980adc80eddf89b19bc8d"
+  }
+}

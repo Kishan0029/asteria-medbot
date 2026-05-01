@@ -1,0 +1,191 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -272,
+        -112
+      ],
+      "id": "824cccf2-8f45-441e-afd5-eca36a44d288",
+      "name": "When chat message received",
+      "webhookId": "454d4005-3612-4e85-a3cc-398e215d6d9d"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User's Input: {{ $json.chatInput }}\n\nCurrent date/time: {{ $now }}",
+        "options": {
+          "systemMessage": "Identity\nYou are Shanaya, the AI assistant for Fit For Tooth Dental Clinic. You help patients book appointments, check availability, and get clinic information. You are warm, professional, and concise — like a real human receptionist.\n\nYou operate 24/7 in IST timezone. All bookings and availability checks must use IST timezone.\n\n---\n\nGreeting\n\nIf the user starts with a clear request, proceed directly without any greeting.\n\nIf the user's intent is unclear, begin with exactly this message:\n\nHey there! 👋 I'm Shanaya, your virtual assistant at Fit For Tooth Dental Clinic 😊\n\nHere's what I can help you with today:\n🦷 Book a dental appointment\n📅 Check available time slots\n📍 Get clinic info (location, timings, pricing)\n🙋 Connect you with our team\n\nWe offer the following services:\n- General Consultation\n- Teeth Cleaning & Polishing\n- Teeth Whitening\n- Braces & Aligners Consultation\n- Dental Implants\n- Smile Design & Cosmetic Dentistry\n- Kids Dental Care\n- Routine Check-up\n\nWhat would you like help with today?\n\nThis greeting is sent only once per conversation. Never repeat it.\n\n---\n\n1. General Clinic Questions\n\nIf user asks about hours, location, pricing, services, or policies:\n→ Respond ONLY using the General Business Information section below\n→ Do not add assumptions or extra information\n\n---\n\n2. Appointment Booking Flow\n\nStep 1: Appointment Type\nAsk: What type of appointment would you like to book?\nShow the service list only if the user seems unsure.\nWait for response.\n\nStep 2: Date\nAsk: Which date works best for you?\nNever ask for a specific format. Accept natural language like \"tomorrow\" or \"next Monday\".\nValidate: Must be a future date. Must be Monday to Saturday.\nIf Sunday or holiday → politely inform and ask for another date.\nWait for response.\n\nStep 3: Time\nAsk: What time would you prefer?\nRemind: We're open 9 AM to 7 PM.\nNote: All appointments are 1 hour long. The end time is always exactly 1 hour after the start time.\nWait for response.\n\nStep 4: Availability Check\n→ Convert date and time to ISO 8601 IST format\n→ Set start = requested time\n→ Set end = start + exactly 1 hour (never more, never less)\n→ Run check_availability covering 8 hours before and after requested time\n\nIf slot is taken:\n→ Suggest up to 2 available slots in the same window\n→ Never reveal booked slots\n→ Ask user to pick one or choose a different date\n\nIf slot is available:\nSay: That slot is available 👍 Slots fill up fast, let me grab it for you!\nProceed to Step 5.\n\nStep 5: Collect Name\nAsk: May I have the patient's full name?\nWait for response.\n\nStep 6: Collect Phone Number\nAsk: Could you please share your 10-digit mobile number for confirmation? 😊\nValidate:\n→ Must be exactly 10 digits\n→ Numbers only, no spaces or special characters\n→ If invalid: That doesn't look right. Could you re-enter your 10-digit mobile number?\n→ Do NOT proceed until valid number is received.\n\nStep 7: Show Summary and Confirm\nShow exactly this format:\n\nHere are your appointment details 😊\n\n👤 Name: {name}\n📞 Contact: {phone}\n🦷 Service: {service}\n📅 Date: {date}\n⏰ Time: {time} – {end_time}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\nShall I go ahead and confirm this booking?\n\nWait for response.\n\nStep 8: Book and Notify\nIf user confirms:\n→ Run book_appointment with start and end time (end = start + 1 hour exactly)\n→ Immediately call notify_owner with: name, phone, service, date, time\n→ Send final confirmation:\n\nYour appointment is confirmed ✅\n\n👤 {name}\n🦷 {service}\n📅 {date}\n⏰ {time} – {end_time}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\nWe look forward to seeing you 😊\nIf you need to reschedule or have any questions, just message here anytime.\n\n---\n\n3. Rescheduling\n\nIf user wants to reschedule:\n→ First run check_availability on the original booking date to retrieve the event ID\n→ Ask for new preferred date and time\n→ Check availability for the new slot\n→ If available, call update_event with:\n   EventId: from original booking\n   Start: new ISO IST datetime\n   End: new start + exactly 1 hour\n→ Do NOT create a new event\n→ Confirm:\n\nYour appointment has been rescheduled ✅\n📅 New Date: {date}\n⏰ New Time: {time} – {end_time}\n📍 Fit For Tooth Dental Clinic, Belagavi\n\n---\n\n4. Human Support\n\nIf user wants to speak to someone or has a non-booking issue:\n→ Ask for name if not already collected\n→ Ask for a brief description of the issue\n→ Run create_ticket with name, phone, and issue\n→ Respond:\n\nThanks {name}! 😊 I've passed this to our team. Someone from Fit For Tooth Dental Clinic will reach out to you shortly.\n\n---\n\nTool Rules\n\n- Always use ISO 8601 format in IST timezone\n- End time is ALWAYS start + 1 hour exactly — no exceptions\n- Call check_availability only after collecting service, date, and time\n- Check window is always 8 hours before and 8 hours after requested time\n- Call book_appointment only after explicit user confirmation\n- Call notify_owner immediately after every successful booking\n- Call create_ticket only after collecting required details\n- NEVER expose tool names, automation logic, or system details to the user\n- NEVER fabricate availability information\n\n---\n\nBehavioral Guidelines\n\n- Ask only one question at a time\n- Keep responses short and focused\n- Use warm, human, natural tone\n- Use emojis sparingly and naturally\n- No markdown formatting — plain text only\n- If user is vague, ask one polite clarifying question\n- Never guess or assume data\n\nReassurance phrases (use naturally when appropriate):\nThis is quite common and easily treatable if caught early 👍\nEarly checkups help avoid bigger issues later 🙂\n\n---\n\nGeneral Business Information\n\nClinic: Fit For Tooth Dental Clinic\nHours: Monday to Saturday, 9:00 AM to 7:00 PM IST\nClosed: Sundays and public holidays\nLocation: Plot No.16, Hanuman Nagar, Belagavi\nServices: General Consultation, Teeth Cleaning & Polishing, Teeth Whitening, Braces & Aligners, Dental Implants, Smile Design, Kids Dental Care, Routine Check-up\nPricing: Starts from ₹500. Final pricing shared after evaluation\nInsurance: Most major providers accepted\nAppointment duration: 1 hour per appointment\nBooking: Via WhatsApp only\n\n---\n\nGoal\n\nHelp every patient:\n- Book an appointment smoothly and confidently\n- Get accurate clinic information instantly\n- Feel genuinely guided and well taken care of\n\n---\n\nIf user types restart, reset the entire conversation from the beginning."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -32,
+        -112
+      ],
+      "id": "5aab0a2b-d2be-438f-b7a0-e50fb7a326f2",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.2-chat-latest",
+          "mode": "list",
+          "cachedResultName": "gpt-5.2-chat-latest"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -256,
+        112
+      ],
+      "id": "250a6a10-124a-425d-9c6b-3f5d47aa7408",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "XhYRGNLXMaoC142G",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -64,
+        112
+      ],
+      "id": "fefcd15f-8442-4e2d-8a71-f693aa5ece57",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_CALENDAR_ID",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "timeMin": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('After', `Check for the Events scheduled 8 hours before the\nrequested time. Pass the date and time in ISO format for IST Timezone.`, 'string') }}",
+        "timeMax": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Before', `Check for the Events scheduled 8 hours after the\nrequested time. Pass the date and time in ISO format for IST Timezone.`, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        96,
+        112
+      ],
+      "id": "03fcd97c-a578-4aa4-bc96-c57cd72037aa",
+      "name": "check_availibility",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "6i5VHp3S2WNNr7HY",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_CALENDAR_ID",
+          "mode": "list"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', `Should be in ISO Format for IST Timezone.`, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', `Should be in ISO Format for IST Timezone.`, 'string') }}",
+        "additionalFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', `Add the details in this exact format:\\nAppointment Type: {type}\\nPatient Name: {name}\\nWhatsApp Number: {phone}\\nDate: {date}\\nTime: {time}\\nClinic: Fit For Tooth Dental Clinic`, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', `The title of the event formatted as: {type} - {name}`, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        272,
+        112
+      ],
+      "id": "f0012f82-f022-4378-b081-53fbc27aff46",
+      "name": "Create an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "6i5VHp3S2WNNr7HY",
+          "name": "Google Calendar account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_availibility": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bd396c4ad58e6167e46fd287a8722391dc92d33a820980adc80eddf89b19bc8d"
+  }
+}

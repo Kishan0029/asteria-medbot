@@ -45,25 +45,25 @@ function Toggle({ on, onChange, label, desc }) {
 /* ─── Main ─────────────────────────────────────────────── */
 export default function Settings() {
   const [form, setForm] = useState({
-    clinicName:    'Fit For Tooth Dental Clinic',
-    address:       'Shop No. 12, Near Shivneri Hotel, Belagavi – 590001, Karnataka, India',
-    phone:         '+91 9845612345',
-    website:       'www.medbot.in',
-    calendarId:    'fitfortooth.clinic@gmail.com',
-    whatsapp:      '+919845612345',
-    lang:          'English',
+    clinicName: 'Fit For Tooth Dental Clinic',
+    address: 'Shop No. 12, Near Shivneri Hotel, Belagavi – 590001, Karnataka, India',
+    phone: '+91 9845612345',
+    website: 'www.medbot.in',
+    calendarId: 'fitfortooth.clinic@gmail.com',
+    whatsapp: '+919845612345',
+    lang: 'English',
   });
 
   const [notifs, setNotifs] = useState({
-    reminder24hr:     true,
-    reminder1hr:      true,
-    onCancel:         true,
-    onReschedule:     true,
+    reminder24hr: true,
+    reminder1hr: true,
+    onCancel: true,
+    onReschedule: true,
   });
 
-  const [autoSync,   setAutoSync]   = useState(true);
-  const [connected,  setConnected]  = useState(true);
-  const [syncing,    setSyncing]    = useState(false);
+  const [autoSync, setAutoSync] = useState(true);
+  const [connected, setConnected] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   const [holidays, setHolidays] = useState(['Sundays']);
   const [newHoliday, setNewHoliday] = useState('');
@@ -131,7 +131,7 @@ export default function Settings() {
         </div>
 
         {/* Holidays */}
-        <div>
+        {/* <div>
           <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Holidays / Closures</p>
           <div className="flex flex-wrap gap-2 mb-3">
             {holidays.map((h, i) => (
@@ -155,7 +155,7 @@ export default function Settings() {
             />
             <button onClick={addHoliday} className="btn btn-primary flex-shrink-0">Add</button>
           </div>
-        </div>
+        </div> */}
 
         <button onClick={() => save('Clinic Info')} className="btn btn-primary">
           <Save size={14} /> Save Changes
@@ -165,13 +165,13 @@ export default function Settings() {
       {/* ── Notification Settings ── */}
       <Section title="Notification Settings" icon={Bell}>
         <div>
-          <Toggle on={notifs.reminder24hr} onChange={v => setNotifs(n => ({...n, reminder24hr: v}))}
+          <Toggle on={notifs.reminder24hr} onChange={v => setNotifs(n => ({ ...n, reminder24hr: v }))}
             label="24-Hour Reminder" desc="Send WhatsApp reminder 24 hours before the appointment" />
-          <Toggle on={notifs.reminder1hr}  onChange={v => setNotifs(n => ({...n, reminder1hr: v}))}
-            label="1-Hour Reminder"  desc="Send WhatsApp reminder 1 hour before the appointment" />
-          <Toggle on={notifs.onCancel}     onChange={v => setNotifs(n => ({...n, onCancel: v}))}
+          <Toggle on={notifs.reminder1hr} onChange={v => setNotifs(n => ({ ...n, reminder1hr: v }))}
+            label="1-Hour Reminder" desc="Send WhatsApp reminder 1 hour before the appointment" />
+          <Toggle on={notifs.onCancel} onChange={v => setNotifs(n => ({ ...n, onCancel: v }))}
             label="Cancellation Alerts" desc="Notify patient when their appointment is cancelled" />
-          <Toggle on={notifs.onReschedule} onChange={v => setNotifs(n => ({...n, onReschedule: v}))}
+          <Toggle on={notifs.onReschedule} onChange={v => setNotifs(n => ({ ...n, onReschedule: v }))}
             label="Reschedule Alerts" desc="Notify patient when their appointment is rescheduled" />
         </div>
 
@@ -181,7 +181,7 @@ export default function Settings() {
           </Field>
           <Field label="Message Language">
             <select value={form.lang} onChange={setField('lang')} className="input-field">
-              {['English','Kannada','Hindi','Marathi'].map(l => <option key={l}>{l}</option>)}
+              {['English', 'Kannada', 'Hindi', 'Marathi'].map(l => <option key={l}>{l}</option>)}
             </select>
           </Field>
         </div>
@@ -205,7 +205,7 @@ export default function Settings() {
                 {connected ? 'Connected & Syncing' : 'Connection Error'}
               </p>
               <p className={`text-[11px] mt-0.5 ${connected ? 'text-emerald-600' : 'text-red-500'}`}>
-                {connected ? 'Last synced: Just now · Auto-sync every 5 min' : 'Click reconnect to retry'}
+                {connected ? 'Last synced: Just now · Auto-sync every 1 min' : 'Click reconnect to retry'}
               </p>
             </div>
           </div>
@@ -226,7 +226,7 @@ export default function Settings() {
             </Field>
           </div>
           <Toggle on={autoSync} onChange={setAutoSync}
-            label="Auto-Sync" desc="Automatically sync calendar every 5 minutes" />
+            label="Auto-Sync" desc="Automatically sync calendar every 1 minute" />
         </div>
 
         {/* Field mapping */}
@@ -237,11 +237,11 @@ export default function Settings() {
           <div className="space-y-0">
             {[
               ['Appointment Type', '{service}'],
-              ['Patient Name',     '{name}'],
-              ['WhatsApp Number',  '{phone}'],
-              ['Date',             '{date}'],
-              ['Time',             '{time}'],
-              ['Clinic',           'Fit For Tooth Dental Clinic'],
+              ['Patient Name', '{name}'],
+              ['WhatsApp Number', '{phone}'],
+              ['Date', '{date}'],
+              ['Time', '{time}'],
+              ['Clinic', 'Fit For Tooth Dental Clinic'],
             ].map(([key, val]) => (
               <div key={key} className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0 gap-4">
                 <span className="text-[13px] text-gray-600">{key}</span>
