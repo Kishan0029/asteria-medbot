@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/webhook': {
-          target: 'https://tennie-burseraceous-lavone.ngrok-free.dev',
+          target: 'https://n8n.srv1657358.hstgr.cloud',
           changeOrigin: true,
           secure: false,
         }
